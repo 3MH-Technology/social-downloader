@@ -1,43 +1,44 @@
-from flask import Flask, request, jsonify, render_template, send_file
+import gradio as gr
 import yt_dlp
 import os
 
-app = Flask(__name__)
+# حقوق المشروع
+BRANDING = "White Wolf Downloader 🐺"
+DEVELOPER = "@j49_c"
 
-DOWNLOAD_FOLDER = "downloads"
-os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
-
-def download_video(url):
-    ydl_opts = {
-        'outtmpl': f'{DOWNLOAD_FOLDER}/%(title)s.%(ext)s',
-        'format': 'best'
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info)
-
-    return filename
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-@app.route("/api/download", methods=["POST"])
-def api_download():
-    url = request.json.get("url")
-
+def get_download_link(url):
     if not url:
-        return jsonify({"error": "No URL"}), 400
-
+        return "يرجى إدخال رابط صالح"
+    
+    ydl_opts = {
+        'format': 'best',
+        'quiet': True,
+        'no_warnings': True,
+    }
+    
     try:
-        file_path = download_video(url)
-        return send_file(file_path, as_attachment=True)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            video_url = info.get('url')
+            title = info.get('title', 'video')
+            return f"### [اضغط هنا لتحميل: {title}]({video_url})"
     except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "developer": "White Wolf | @j49_c"
-        })
+        return f"خطأ: {str(e)}"
+
+# بناء الواجهة بتصميم داكن (Cyberpunk Style)
+with gr.Blocks(theme=gr.themes.Soft(primary_hue="cyan", neutral_hue="slate")) as demo:
+    gr.Markdown(f"# {BRANDING}")
+    gr.Markdown(f"### Developed by {DEVELOPER} | White Wolf Infrastructure")
+    
+    with gr.Row():
+        url_input = gr.Textbox(placeholder="ضع رابط الفيديو من (TikTok, Instagram, YouTube...)", label="رابط الفيديو")
+    
+    download_btn = gr.Button("استخراج رابط التحميل", variant="primary")
+    output = gr.Markdown(label="النتيجة")
+
+    download_btn.click(fn=get_download_link, inputs=url_input, outputs=output)
+
+    gr.HTML(f"<div style='text-align:center; margin-top:20px; color:#555;'>© 2026 {BRANDING}</div>")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=7860)
+    demo.launch()
